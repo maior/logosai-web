@@ -7,13 +7,14 @@ import { StreamingProgress } from './StreamingProgress';
 import { cn } from '@/utils/cn';
 
 interface ChatViewProps {
+  email: string;
   sessionId?: string;
   className?: string;
 }
 
-export function ChatView({ sessionId, className }: ChatViewProps) {
+export function ChatView({ email, sessionId, className }: ChatViewProps) {
   const { messages, streamingState, isLoading, error, sendMessage, clearMessages } =
-    useChat(sessionId);
+    useChat(email, sessionId);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>

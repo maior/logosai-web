@@ -21,7 +21,7 @@ export interface UseChatReturn {
   clearMessages: () => void;
 }
 
-export function useChat(sessionId?: string): UseChatReturn {
+export function useChat(email: string, sessionId?: string): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingState, setStreamingState] = useState<StreamingState | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +29,11 @@ export function useChat(sessionId?: string): UseChatReturn {
 
   const sendMessage = useCallback(async (query: string) => {
     if (!query.trim() || isLoading) return;
+
+    if (!email) {
+      setError('이메일 정보가 없습니다. 다시 로그인해주세요.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -45,6 +50,7 @@ export function useChat(sessionId?: string): UseChatReturn {
     try {
       const result = await startChatStream({
         query,
+        email,
         sessionId,
         onStateChange: (state) => {
           setStreamingState(state);
@@ -85,7 +91,7 @@ export function useChat(sessionId?: string): UseChatReturn {
       setIsLoading(false);
       setStreamingState(null);
     }
-  }, [isLoading, sessionId, messages]);
+  }, [isLoading, email, sessionId, messages]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

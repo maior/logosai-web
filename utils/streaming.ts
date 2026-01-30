@@ -2,7 +2,9 @@
  * logos_api SSE 스트리밍 처리
  */
 
-import { API_BASE, getHeaders } from './api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
+const API_VERSION = process.env.NEXT_PUBLIC_API_VERSION || 'v1';
+const API_BASE = `${API_URL}/api/${API_VERSION}`;
 
 export interface StreamingState {
   isConnected: boolean;
@@ -45,6 +47,7 @@ export interface AgentResult {
 
 export interface ChatStreamOptions {
   query: string;
+  email: string;
   sessionId?: string;
   onStateChange?: (state: StreamingState) => void;
   onMessage?: (message: StreamMessage) => void;
@@ -55,7 +58,7 @@ export interface ChatStreamOptions {
  * 채팅 스트리밍 시작
  */
 export async function startChatStream(options: ChatStreamOptions): Promise<StreamMessage | null> {
-  const { query, sessionId, onStateChange, onMessage, onError } = options;
+  const { query, email, sessionId, onStateChange, onMessage, onError } = options;
 
   const initialState: StreamingState = {
     isConnected: false,
@@ -72,11 +75,13 @@ export async function startChatStream(options: ChatStreamOptions): Promise<Strea
     const response = await fetch(`${API_BASE}/chat/stream`, {
       method: 'POST',
       headers: {
-        ...getHeaders(),
+        'Content-Type': 'application/json',
         'Accept': 'text/event-stream',
+        'Cache-Control': 'no-cache',
       },
       body: JSON.stringify({
         query,
+        email,
         session_id: sessionId,
       }),
     });

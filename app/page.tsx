@@ -1,30 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { ChatView } from '@/components/ChatView';
-import { tokenManager, checkHealth } from '@/utils/api';
-import { isAuthenticated, getCurrentUserEmail } from '@/utils/auth';
-import { Bot, LogOut, Wifi, WifiOff, Settings } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import { checkHealth } from '@/utils/api';
+import { Bot, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { FcGoogle } from 'react-icons/fc';
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [email, setEmail] = useState('');
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginToken, setLoginToken] = useState('');
+  const { data: session, status } = useSession();
   const [isConnected, setIsConnected] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
-  // 초기 상태 확인
+  // 서버 연결 상태 확인
   useEffect(() => {
-    const checkAuth = async () => {
-      // 토큰 확인
-      if (isAuthenticated()) {
-        setIsLoggedIn(true);
-        setEmail(getCurrentUserEmail() || '');
-      }
-
-      // 서버 연결 확인
+    const checkConnection = async () => {
       try {
         await checkHealth();
         setIsConnected(true);
@@ -33,28 +22,36 @@ export default function Home() {
       }
     };
 
-    checkAuth();
+    checkConnection();
+    // 30초마다 연결 상태 확인
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleLogin = () => {
-    if (!loginEmail.trim() || !loginToken.trim()) return;
-
-    tokenManager.setToken(loginToken);
-    tokenManager.setEmail(loginEmail);
-    setEmail(loginEmail);
-    setIsLoggedIn(true);
-    setLoginEmail('');
-    setLoginToken('');
+  const handleGoogleLogin = () => {
+    signIn('google', { callbackUrl: '/' });
   };
 
   const handleLogout = () => {
-    tokenManager.removeToken();
-    setIsLoggedIn(false);
-    setEmail('');
+    signOut({ callbackUrl: '/' });
   };
 
+  // 로딩 중
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500 text-white mb-4 animate-pulse">
+            <Bot className="w-10 h-10" />
+          </div>
+          <p className="text-gray-500 dark:text-gray-400">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   // 로그인 화면
-  if (!isLoggedIn) {
+  if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <div className="w-full max-w-md">
@@ -71,42 +68,17 @@ export default function Home() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  이메일
-                </label>
-                <input
-                  type="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  JWT 토큰
-                </label>
-                <textarea
-                  value={loginToken}
-                  onChange={(e) => setLoginToken(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  rows={3}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  logos_api에서 발급받은 JWT 토큰을 입력하세요
-                </p>
-              </div>
-              <button
-                onClick={handleLogin}
-                disabled={!loginEmail.trim() || !loginToken.trim()}
-                className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-              >
-                로그인
-              </button>
-            </div>
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-lg transition-colors"
+            >
+              <FcGoogle className="w-5 h-5" />
+              Google로 계속하기
+            </button>
+
+            <p className="mt-4 text-xs text-center text-gray-500 dark:text-gray-400">
+              Google 계정으로 로그인하여 LogosAI의 모든 기능을 사용하세요
+            </p>
 
             {/* 서버 상태 */}
             <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -128,22 +100,6 @@ export default function Home() {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* 토큰 생성 안내 */}
-          <div className="mt-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              테스트 토큰 생성 방법
-            </h3>
-            <pre className="text-xs text-gray-600 dark:text-gray-400 overflow-x-auto whitespace-pre-wrap">
-{`python -c "
-from datetime import datetime, timedelta, timezone
-from jose import jwt
-expire = datetime.now(timezone.utc) + timedelta(hours=24)
-payload = {'sub': 'your@email.com', 'exp': expire, 'type': 'access'}
-print(jwt.encode(payload, 'your-super-secret-key-change-this-in-production', algorithm='HS256'))
-"`}
-            </pre>
           </div>
         </div>
       </div>
@@ -180,8 +136,17 @@ print(jwt.encode(payload, 'your-super-secret-key-change-this-in-production', alg
           </div>
 
           {/* 사용자 정보 */}
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {email}
+          <div className="flex items-center gap-2">
+            {session.user?.image && (
+              <img
+                src={session.user.image}
+                alt={session.user.name || ''}
+                className="w-8 h-8 rounded-full"
+              />
+            )}
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {session.user?.email}
+            </span>
           </div>
 
           {/* 로그아웃 */}
@@ -197,7 +162,7 @@ print(jwt.encode(payload, 'your-super-secret-key-change-this-in-production', alg
 
       {/* 채팅 영역 */}
       <main className="flex-1 overflow-hidden">
-        <ChatView className="h-full" />
+        <ChatView className="h-full" email={session.user?.email || ''} />
       </main>
     </div>
   );
