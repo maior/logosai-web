@@ -45,16 +45,19 @@ logos_web Next.js 프론트엔드 개발 가이드입니다.
 
 | 파일 | 설명 |
 |------|------|
-| `app/page.tsx` | 메인 페이지 (로그인 + 채팅) |
+| `app/page.tsx` | 메인 페이지 (로그인 + 채팅 + 사이드바) |
 | `app/layout.tsx` | 루트 레이아웃 |
 | `components/ChatView.tsx` | 채팅 UI 통합 컴포넌트 |
+| `components/ConversationSidebar.tsx` | 대화 히스토리 사이드바 ⭐ NEW |
 | `components/MessageList.tsx` | 메시지 목록 표시 |
 | `components/ChatInput.tsx` | 채팅 입력 |
-| `components/SimpleStreamingIndicator.tsx` | 단일 라인 SSE 스트리밍 상태 표시 ⭐ |
+| `components/SimpleStreamingIndicator.tsx` | 단일 라인 SSE 스트리밍 상태 표시 |
 | `utils/api.ts` | logos_api 클라이언트 |
-| `utils/streaming.ts` | SSE 스트리밍 처리 (answer 추출 포함) ⭐ |
+| `utils/streaming.ts` | SSE 스트리밍 처리 (answer 추출 포함) |
 | `utils/auth.ts` | JWT 인증 유틸리티 |
 | `hooks/useChat.ts` | 채팅 상태 관리 훅 |
+| `hooks/useConversations.ts` | 대화 목록 관리 훅 ⭐ NEW |
+| `types/index.ts` | TypeScript 타입 정의 ⭐ NEW |
 
 ## 서버 시작
 
@@ -86,6 +89,7 @@ NEXT_PUBLIC_API_VERSION=v1
 
 | 이벤트 | 처리 | 설명 |
 |--------|------|------|
+| `memory_context` | ✅ | 사용자 메모리 로드 (🧠 뱃지 + 보라색 로그) ⭐ NEW |
 | `initialization` | ✅ | 시스템 초기화 |
 | `ontology_init` | ✅ | 온톨로지 분석 시작 |
 | `multi_agent_init` | ✅ | 멀티 에이전트 처리 시작 |
@@ -326,11 +330,131 @@ formatted_system_template = system_template.format(
 - 하드코딩된 키워드 매칭 없음 (Samsung 도메인 예외 - 비즈니스 요구사항)
 - 에이전트 메타데이터(description, capabilities, tags)를 LLM에 전달하여 의미론적 매칭
 
+## 대화 히스토리 사이드바 (NEW 2026-02-03)
+
+### 기능
+
+- **대화 목록 표시**: 사용자의 모든 대화 세션 표시
+- **대화 전환**: 클릭으로 이전 대화 로드
+- **새 대화 시작**: "New Chat" 버튼으로 새 세션 생성
+- **대화 삭제**: 더블클릭으로 삭제 확인 후 삭제
+- **접기/펼치기**: 토글 버튼으로 사이드바 표시/숨김
+
+### 사용 방법
+
+```
+1. 로그인 후 좌측 화살표 버튼 클릭 → 사이드바 열기
+2. 대화 목록에서 이전 대화 선택 → 메시지 히스토리 로드
+3. "New Chat" 버튼 → 새 대화 시작
+4. 대화 항목 마우스 오버 → 삭제 버튼 표시
+5. 삭제 버튼 두 번 클릭 → 대화 삭제
+```
+
+### 아키텍처
+
+```
+page.tsx (상태 관리)
+    ├── ConversationSidebar (대화 목록)
+    │   ├── New Chat 버튼
+    │   ├── 대화 목록 (Session[])
+    │   └── 삭제 확인 로직
+    │
+    └── ChatView (채팅 UI)
+        ├── sessionId prop → 세션 로드
+        ├── loadMessages → 메시지 복원
+        └── sendMessage → 메시지 전송
+```
+
+### API 연동
+
+| 기능 | API | 설명 |
+|------|-----|------|
+| 세션 목록 | `GET /api/v1/sessions` | 사용자 대화 목록 조회 |
+| 세션 생성 | `POST /api/v1/sessions` | 새 대화 세션 생성 |
+| 세션 삭제 | `DELETE /api/v1/sessions/{id}` | 대화 세션 삭제 |
+| 메시지 조회 | `GET /api/v1/sessions/{id}/messages` | 세션 메시지 조회 |
+
+### 인증 방식
+
+logos_api는 JWT와 이메일 기반 인증을 모두 지원합니다.
+Google OAuth 사용자의 경우 `X-User-Email` 헤더로 인증합니다.
+
+```typescript
+// utils/api.ts - getHeaders()
+export function getHeaders(): HeadersInit {
+  const token = tokenManager.getToken();
+  const email = tokenManager.getEmail();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(email ? { 'X-User-Email': email } : {}),
+  };
+}
+```
+
+### logosus 스키마 호환
+
+logos_api의 logosus 스키마 마이그레이션에 맞게 업데이트됨:
+- 사용자 식별: UUID `user_id` (내부), `email` (API 호환)
+- 대화 세션: `Conversation` 모델 (logosus.conversations 테이블)
+- 메시지: `Message` 모델 (logosus.messages 테이블)
+
+## ⚠️ 백엔드 변경 시 E2E 테스트 필수 (MANDATORY)
+
+logos_api의 SSE 응답 포맷이 변경되면 logos_web의 `streaming.ts` 추출 로직과 호환되는지 반드시 확인해야 합니다.
+
+**핵심 확인 항목**:
+1. `final_result` 이벤트의 3중 중첩 구조 (`data.data.result`) 정상 파싱
+2. `extractCleanResponse(agentResults)`에서 answer 정상 추출
+3. `extractAnswerFromContent(content)`에서 JSON/텍스트 처리 정상
+4. "No response received." 대신 실제 답변이 표시되는지 확인
+
+> 상세 테스트 방법: `logos_api/CLAUDE.md`의 "필수 E2E 테스트 규칙" 참조
+
 ## 관련 문서
 
 - [../logos_api/CLAUDE.md](../logos_api/CLAUDE.md) - 백엔드 API 가이드
 - [../CLAUDE.md](../CLAUDE.md) - 메인 프로젝트 가이드
 
+## 메모리 UI 인디케이터 (NEW 2026-02-08)
+
+사용자 메모리가 로드되면 스트리밍 UI에 시각적 피드백 표시:
+
+### StreamingState 확장
+
+```typescript
+// utils/streaming.ts
+export interface StreamingState {
+  // ... 기존 필드 ...
+  memoryCount?: number;  // 로드된 메모리 수
+}
+```
+
+### memory_context SSE 이벤트 처리
+
+```typescript
+// streaming.ts processEvent()
+case 'memory_context':
+  return {
+    state: { ...currentState, memoryCount: data.memory_count || 0 },
+  };
+```
+
+### UI 표시
+
+| 위치 | 컴포넌트 | 표시 |
+|------|----------|------|
+| 스트리밍 로그 | `SimpleStreamingIndicator.tsx` | `🧠 사용자 메모리 3건 참조` (보라색) |
+| Processing 라벨 | `MessageList.tsx` (ThinkingMessage) | `🧠 3` 뱃지 (보라색) |
+
+### SSE 이벤트 순서
+
+```
+[memory_context] → initialization → ontology_init → ... → final_result → message_saved
+```
+
+`memory_context`는 메모리가 있는 사용자에게만 발생하며, `initialization` 앞에 위치합니다.
+
 ---
 
-*최종 업데이트: 2026-01-31*
+*최종 업데이트: 2026-02-08 (메모리 UI 인디케이터, memory_context 이벤트 처리)*

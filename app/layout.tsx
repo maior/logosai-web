@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'LogosAI - Intelligent Multi-Agent System',
-  description: 'LogosAI 멀티 에이전트 AI 시스템',
+  description: 'LogosAI Intelligent Multi-Agent AI System',
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="en">
       <body className="antialiased">
         <Providers>
           {children}

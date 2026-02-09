@@ -3,87 +3,62 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 250, 250, 250;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 17, 24, 39;
-    --background-end-rgb: 31, 41, 55;
-  }
+  --foreground-rgb: 226, 232, 240;
+  --background-rgb: 15, 23, 42;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-rgb));
   min-height: 100vh;
 }
 
-/* 스크롤바 스타일 */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: rgba(100, 116, 139, 0.5);
 }
 
-/* 다크 모드 스크롤바 */
-@media (prefers-color-scheme: dark) {
-  ::-webkit-scrollbar-track {
-    background: #374151;
+/* Selection */
+::selection {
+  background: rgba(139, 92, 246, 0.3);
+  color: #fff;
+}
+
+/* Simple animation for fade in */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Gradient animation for drag overlay */
+@keyframes gradient-x {
+  0%, 100% {
+    background-position: 0% 50%;
   }
-
-  ::-webkit-scrollbar-thumb {
-    background: #6b7280;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+  50% {
+    background-position: 100% 50%;
   }
 }
 
-/* 마크다운 스타일 */
-.markdown-content {
-  @apply prose prose-sm max-w-none dark:prose-invert;
-}
-
-.markdown-content pre {
-  @apply bg-gray-800 text-gray-100 rounded-lg p-4 overflow-x-auto;
-}
-
-.markdown-content code {
-  @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm;
-}
-
-.markdown-content table {
-  @apply w-full border-collapse;
-}
-
-.markdown-content th,
-.markdown-content td {
-  @apply border border-gray-300 dark:border-gray-600 px-3 py-2;
-}
-
-.markdown-content th {
-  @apply bg-gray-100 dark:bg-gray-700 font-semibold;
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 3s ease infinite;
 }

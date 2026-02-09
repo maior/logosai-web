@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { startChatStream, StreamingState, StreamMessage } from '@/utils/streaming';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { startChatStream, StreamingState, StreamMessage, KnowledgeGraphData } from '@/utils/streaming';
+import { Message as ApiMessage } from '@/types';
 
 export interface Message {
   id: string;
@@ -10,6 +11,11 @@ export interface Message {
   timestamp: Date;
   agentResults?: any[];
   metadata?: any;
+  knowledgeGraph?: KnowledgeGraphData | null;
+}
+
+export interface UseChatOptions {
+  onSessionCreated?: (sessionId: string) => void;
 }
 
 export interface UseChatReturn {
@@ -17,26 +23,55 @@ export interface UseChatReturn {
   streamingState: StreamingState | null;
   isLoading: boolean;
   error: string | null;
+  currentSessionId: string | undefined;
   sendMessage: (query: string) => Promise<void>;
   clearMessages: () => void;
+  loadMessages: (apiMessages: ApiMessage[]) => void;
 }
 
-export function useChat(email: string, sessionId?: string): UseChatReturn {
+export function useChat(
+  email: string,
+  initialSessionId?: string,
+  options?: UseChatOptions
+): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingState, setStreamingState] = useState<StreamingState | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>(initialSessionId);
+
+  // Ref to track if message was already added via onMessage callback
+  const messageReceivedRef = useRef(false);
+
+  // Update currentSessionId when initialSessionId changes
+  useEffect(() => {
+    setCurrentSessionId(initialSessionId);
+  }, [initialSessionId]);
+
+  // Load messages from API response (for session restore)
+  const loadMessages = useCallback((apiMessages: ApiMessage[]) => {
+    const convertedMessages: Message[] = apiMessages.map((msg) => ({
+      id: msg.id,
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+      timestamp: new Date(msg.created_at),
+      metadata: msg.extra_data,
+    }));
+    setMessages(convertedMessages);
+    setError(null);
+  }, []);
 
   const sendMessage = useCallback(async (query: string) => {
     if (!query.trim() || isLoading) return;
 
     if (!email) {
-      setError('이메일 정보가 없습니다. 다시 로그인해주세요.');
+      setError('Email information not found. Please sign in again.');
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    messageReceivedRef.current = false;
 
     // 사용자 메시지 추가
     const userMessage: Message = {
@@ -48,14 +83,42 @@ export function useChat(email: string, sessionId?: string): UseChatReturn {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
+      console.log('[useChat] Starting chat stream...', { query, email, sessionId: currentSessionId });
+
       const result = await startChatStream({
         query,
         email,
-        sessionId,
+        sessionId: currentSessionId,
         onStateChange: (state) => {
+          console.log('[useChat] State change:', state.currentStage, state.progress + '%');
           setStreamingState(state);
+
+          // Handle final result from streaming state
+          if (state.currentStage === 'completed' && state.progress === 100) {
+            console.log('[useChat] Stream completed via state');
+          }
+        },
+        onSessionCreated: (newSessionId) => {
+          // 새 세션이 생성되었을 때
+          console.log('[useChat] New session created:', newSessionId);
+          setCurrentSessionId(newSessionId);
+          options?.onSessionCreated?.(newSessionId);
         },
         onMessage: (message) => {
+          // Mark that we received the message via callback
+          messageReceivedRef.current = true;
+          console.log('[useChat] Received message via onMessage callback:', {
+            contentLength: message.content?.length,
+            hasAgentResults: !!message.agentResults?.length,
+            sessionId: message.sessionId,
+          });
+
+          // 세션 ID 업데이트 (메시지에 포함된 경우)
+          if (message.sessionId && message.sessionId !== currentSessionId) {
+            setCurrentSessionId(message.sessionId);
+            options?.onSessionCreated?.(message.sessionId);
+          }
+
           // 어시스턴트 메시지 추가
           const assistantMessage: Message = {
             id: `assistant-${Date.now()}`,
@@ -64,16 +127,29 @@ export function useChat(email: string, sessionId?: string): UseChatReturn {
             timestamp: new Date(),
             agentResults: message.agentResults,
             metadata: message.metadata,
+            knowledgeGraph: message.knowledgeGraph,
           };
-          setMessages((prev) => [...prev, assistantMessage]);
+          setMessages((prev) => {
+            console.log('[useChat] Adding assistant message, previous count:', prev.length);
+            return [...prev, assistantMessage];
+          });
         },
         onError: (err) => {
+          console.error('[useChat] Stream error:', err.message);
           setError(err.message);
         },
       });
 
-      // 스트리밍이 완료되었지만 onMessage가 호출되지 않은 경우
-      if (result && !messages.some((m) => m.content === result.content)) {
+      console.log('[useChat] Stream finished, result:', {
+        hasResult: !!result,
+        hasContent: !!result?.content,
+        messageReceived: messageReceivedRef.current,
+        sessionId: result?.sessionId,
+      });
+
+      // Fallback: if onMessage wasn't called but we have a result
+      if (result && result.content && !messageReceivedRef.current) {
+        console.log('[useChat] Using fallback to add message from result');
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
@@ -81,8 +157,17 @@ export function useChat(email: string, sessionId?: string): UseChatReturn {
           timestamp: new Date(),
           agentResults: result.agentResults,
           metadata: result.metadata,
+          knowledgeGraph: result.knowledgeGraph,
         };
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // 세션 ID 업데이트
+        if (result.sessionId && result.sessionId !== currentSessionId) {
+          setCurrentSessionId(result.sessionId);
+          options?.onSessionCreated?.(result.sessionId);
+        }
+      } else if (!result && !messageReceivedRef.current) {
+        console.warn('[useChat] No result received and no message callback triggered');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -91,12 +176,13 @@ export function useChat(email: string, sessionId?: string): UseChatReturn {
       setIsLoading(false);
       setStreamingState(null);
     }
-  }, [isLoading, email, sessionId, messages]);
+  }, [isLoading, email, currentSessionId, options]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
     setStreamingState(null);
+    setCurrentSessionId(undefined);
   }, []);
 
   return {
@@ -104,7 +190,9 @@ export function useChat(email: string, sessionId?: string): UseChatReturn {
     streamingState,
     isLoading,
     error,
+    currentSessionId,
     sendMessage,
     clearMessages,
+    loadMessages,
   };
 }
