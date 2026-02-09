@@ -61,6 +61,12 @@ export function SimpleStreamingIndicator({ state }: SimpleStreamingIndicatorProp
         addLog(`→ ${stageMessage}`);
       }
       lastStageRef.current = state.currentStage;
+
+      // Show memory indicator right after initialization stage
+      // memory_context SSE event arrives before initialization, so memoryCount is already set
+      if (state.currentStage === 'initializing' && state.memoryCount && state.memoryCount > 0) {
+        addLog(`🧠 Loaded ${state.memoryCount} user ${state.memoryCount === 1 ? 'memory' : 'memories'}`);
+      }
     }
 
     // Agent change
@@ -79,19 +85,6 @@ export function SimpleStreamingIndicator({ state }: SimpleStreamingIndicatorProp
       }
     }
   }, [state.currentStage, state.currentAgent, state.message]);
-
-  // Memory loaded indicator
-  useEffect(() => {
-    if (state.memoryCount && state.memoryCount > 0) {
-      setLogs(prev => {
-        const memLog = `🧠 사용자 메모리 ${state.memoryCount}건 참조`;
-        if (!prev.includes(memLog)) {
-          return [memLog, ...prev.slice(-20)];
-        }
-        return prev;
-      });
-    }
-  }, [state.memoryCount]);
 
   // Agent completion tracking
   useEffect(() => {
