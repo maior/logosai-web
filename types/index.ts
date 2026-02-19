@@ -121,3 +121,20 @@ export interface AgentInfo {
   progressPercent?: number;
   progressMessage?: string;
 }
+
+// Memory types
+export interface Memory {
+  id: string;
+  user_id: string;
+  memory_type: 'fact' | 'preference' | 'context' | 'instruction';
+  content: string;
+  category?: string;
+  importance: number;
+  source_conversation_id?: string;
+  is_active: boolean;
+  access_count: number;
+  last_accessed_at?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}

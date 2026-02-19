@@ -184,3 +184,57 @@ export async function deleteFile(fileId: string): Promise<void> {
 
   if (!response.ok) throw new Error('Failed to delete file');
 }
+
+/**
+ * Memory API
+ */
+import type { Memory } from '@/types';
+
+export async function getMemories(type?: string): Promise<Memory[]> {
+  const params = new URLSearchParams();
+  if (type) params.append('memory_type', type);
+  params.append('limit', '100');
+
+  const response = await fetch(`${API_BASE}/memories/?${params.toString()}`, {
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to fetch memories');
+  const data = await response.json();
+  return data.memories || [];
+}
+
+export async function createMemory(data: {
+  content: string;
+  memory_type: string;
+  category?: string;
+  importance?: number;
+}): Promise<Memory> {
+  const response = await fetch(`${API_BASE}/memories/`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create memory');
+  return response.json();
+}
+
+export async function updateMemory(
+  id: string,
+  data: { content?: string; memory_type?: string; importance?: number; is_active?: boolean }
+): Promise<Memory> {
+  const response = await fetch(`${API_BASE}/memories/${id}`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update memory');
+  return response.json();
+}
+
+export async function deleteMemory(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/memories/${id}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to delete memory');
+}
