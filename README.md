@@ -340,10 +340,9 @@ export async function myApiCall(param: string): Promise<MyResponse> {
 
 | 프로젝트 | 설명 | 저장소 |
 |----------|------|--------|
-| **logos_api** | FastAPI 백엔드 서버 | [logosai-api](https://github.com/maior/logosai-api) |
-| **logosai** | Python SDK | [logosai](https://github.com/maior/logosai) |
-| **logos_server** | Django 백엔드 (레거시) | [logosai-server](https://github.com/maior/logosai-server) |
-| **ontology** | 온톨로지 시스템 | [logosai-ontology](https://github.com/maior/logosai-ontology) |
+| **logosai-api** | FastAPI 백엔드 서버 | [github.com/maior/logosai-api](https://github.com/maior/logosai-api) |
+| **logosai-framework** | Python SDK + Agent Runtime | [github.com/maior/logosai-framework](https://github.com/maior/logosai-framework) |
+| **logosai-ontology** | 온톨로지 멀티에이전트 오케스트레이션 | [github.com/maior/logosai-ontology](https://github.com/maior/logosai-ontology) |
 
 ## 📄 라이선스
 
