@@ -38,5 +38,8 @@ next-env.d.ts
 # Testing
 coverage/
 
+# Logs
+logs/
+
 # Misc
 *.log

@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn';
 import { Message } from '@/hooks/useChat';
 import { KnowledgeGraphData, StreamingState } from '@/utils/streaming';
 import { SimpleStreamingIndicator } from './SimpleStreamingIndicator';
+import { parseShoppingData, ShoppingResults } from './ShoppingResults';
 
 interface MessageListProps {
   messages: Message[];
@@ -87,6 +88,9 @@ function MessageItem({
   const [iframeHeight, setIframeHeight] = useState(400);
   const hasKnowledgeGraph = message.knowledgeGraph && message.knowledgeGraph.nodes?.length > 0;
 
+  // Detect shopping data
+  const shoppingData = useMemo(() => parseShoppingData(message.content), [message.content]);
+
   // Detect if content is HTML that should be rendered in iframe
   const contentType = useMemo(() => {
     if (!message.content || typeof message.content !== 'string') return 'markdown';
@@ -132,29 +136,58 @@ function MessageItem({
       <div className="max-w-3xl mx-auto">
         {/* Response content */}
         <div className="space-y-3">
-          {contentType === 'html' ? (
+          {shoppingData ? (
+            <ShoppingResults data={shoppingData} />
+          ) : contentType === 'html' ? (
             <HtmlContent content={message.content} iframeHeight={iframeHeight} setIframeHeight={setIframeHeight} />
           ) : (
-            <div className="prose prose-invert prose-slate max-w-none
-              prose-p:text-slate-300 prose-p:leading-7 prose-p:text-[15px] prose-p:my-2
-              prose-headings:text-slate-200 prose-headings:font-medium prose-headings:mt-4 prose-headings:mb-2
-              prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
-              prose-strong:text-slate-200 prose-strong:font-medium
-              prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline
-              prose-code:text-purple-300 prose-code:bg-slate-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
-              prose-pre:bg-transparent prose-pre:border-0 prose-pre:p-0 prose-pre:my-3
-              prose-ul:text-slate-300 prose-ol:text-slate-300 prose-ul:my-2 prose-ol:my-2
-              prose-li:text-slate-300 prose-li:leading-7 prose-li:my-0.5
-              prose-blockquote:border-slate-600 prose-blockquote:text-slate-400 prose-blockquote:not-italic
-              prose-table:text-sm prose-table:my-3
-              prose-th:text-slate-400 prose-th:font-medium prose-th:bg-slate-800/30 prose-th:px-3 prose-th:py-2
-              prose-td:text-slate-400 prose-td:px-3 prose-td:py-2 prose-td:border-slate-700/30
-              prose-hr:border-slate-700/30 prose-hr:my-4
-            ">
+            <div className={cn(
+              "prose prose-invert prose-slate max-w-none",
+              "prose-p:text-slate-300 prose-p:leading-7 prose-p:text-[15px] prose-p:my-2",
+              "prose-headings:text-slate-200 prose-headings:font-medium prose-headings:mt-4 prose-headings:mb-2",
+              "prose-h1:text-lg prose-h2:text-base prose-h3:text-sm",
+              "prose-strong:text-slate-200 prose-strong:font-medium",
+              "prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline",
+              "prose-code:text-purple-300 prose-code:bg-slate-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none",
+              "prose-pre:bg-transparent prose-pre:border-0 prose-pre:p-0 prose-pre:my-3",
+              "prose-ul:text-slate-300 prose-ol:text-slate-300 prose-ul:my-2 prose-ol:my-2",
+              "prose-li:text-slate-300 prose-li:leading-7 prose-li:my-0.5",
+              "prose-blockquote:border-slate-600 prose-blockquote:text-slate-400 prose-blockquote:not-italic",
+              "prose-table:text-sm prose-table:my-3",
+              "prose-th:text-slate-400 prose-th:font-medium prose-th:bg-slate-800/30 prose-th:px-3 prose-th:py-2",
+              "prose-td:text-slate-400 prose-td:px-3 prose-td:py-2 prose-td:border-slate-700/30",
+              "prose-hr:border-slate-700/20 prose-hr:my-3",
+              // Shopping card styling: h4 becomes card header
+              "prose-h4:text-sm prose-h4:font-semibold prose-h4:mt-1 prose-h4:mb-1",
+            )}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
                 components={{
+                  a({ href, children }) {
+                    return (
+                      <a
+                        href={href || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-400 no-underline hover:underline hover:text-purple-300 transition-colors"
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
+                  img({ src, alt }) {
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={src || ''}
+                        alt={alt || ''}
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        className="rounded-lg border border-slate-700/30 object-cover w-28 h-28 my-1.5 bg-slate-800/30 hover:scale-105 transition-transform duration-200"
+                      />
+                    );
+                  },
                   code({ node, className, children }) {
                     const match = /language-(\w+)/.exec(className || '');
                     const language = match ? match[1] : '';
