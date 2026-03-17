@@ -42,14 +42,19 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // Load sessions when authenticated
+  // Store email when session is available
+  const userEmail = session?.user?.email;
   useEffect(() => {
+    if (userEmail) {
+      tokenManager.setEmail(userEmail);
+    }
+  }, [userEmail]);
+
+  // Load sessions once on login (not on every tab focus)
+  useEffect(() => {
+    if (!userEmail) return;
+
     const loadSessions = async () => {
-      if (!session?.user?.email) return;
-
-      // Store email in tokenManager for API calls
-      tokenManager.setEmail(session.user.email);
-
       setIsLoadingSessions(true);
       try {
         const sessionList = await getSessions();
@@ -60,10 +65,8 @@ export default function Home() {
       setIsLoadingSessions(false);
     };
 
-    if (session) {
-      loadSessions();
-    }
-  }, [session]);
+    loadSessions();
+  }, [userEmail]);
 
   // Handle session selection
   const handleSelectSession = useCallback(async (selectedSession: Session) => {
