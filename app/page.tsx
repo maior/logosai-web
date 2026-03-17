@@ -9,10 +9,21 @@ import { LandingPage } from '@/components/landing/LandingPage';
 import { checkHealth, getSessions, getSession, getHeaders, tokenManager } from '@/utils/api';
 import { Session, Message as ApiMessage } from '@/types';
 
+// Auth mode from environment
+const AUTH_MODE = process.env.AUTH_MODE || process.env.NEXT_PUBLIC_AUTH_MODE || 'team';
+const PERSONAL_EMAIL = process.env.PERSONAL_USER_EMAIL || process.env.NEXT_PUBLIC_PERSONAL_USER_EMAIL || '';
+
 export default function Home() {
   const { data: session, status } = useSession();
   const [isConnected, setIsConnected] = useState(false);
   const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+
+  // Personal mode: create a fake session object
+  const isPersonalMode = AUTH_MODE === 'personal' && PERSONAL_EMAIL;
+  const effectiveSession = isPersonalMode
+    ? { user: { email: PERSONAL_EMAIL, name: PERSONAL_EMAIL.split('@')[0], image: null } }
+    : session;
+  const effectiveStatus = isPersonalMode ? 'authenticated' : status;
 
   // Conversation state
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -43,7 +54,7 @@ export default function Home() {
   }, []);
 
   // Store email when session is available
-  const userEmail = session?.user?.email;
+  const userEmail = effectiveSession?.user?.email;
   useEffect(() => {
     if (userEmail) {
       tokenManager.setEmail(userEmail);
@@ -139,7 +150,7 @@ export default function Home() {
   }, [currentSessionId]);
 
   // Loading state
-  if (status === 'loading') {
+  if (effectiveStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center">
@@ -151,7 +162,7 @@ export default function Home() {
   }
 
   // Landing page (unauthenticated)
-  if (!session) {
+  if (!effectiveSession) {
     return (
       <LandingPage
         onSignIn={() => signIn('google', { callbackUrl: '/' })}
@@ -174,21 +185,21 @@ export default function Home() {
         <div className="flex items-center gap-3">
           {/* User */}
           <div className="flex items-center gap-2">
-            {session.user?.image ? (
+            {effectiveSession.user?.image ? (
               <img
-                src={session.user.image}
+                src={effectiveSession.user.image}
                 alt=""
                 className="w-7 h-7 rounded-full"
               />
             ) : (
               <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
                 <span className="text-slate-300 text-xs">
-                  {session.user?.email?.[0].toUpperCase()}
+                  {effectiveSession.user?.email?.[0].toUpperCase()}
                 </span>
               </div>
             )}
             <span className="text-sm text-slate-400 hidden sm:inline">
-              {session.user?.name || session.user?.email}
+              {effectiveSession.user?.name || effectiveSession.user?.email}
             </span>
           </div>
 
@@ -203,8 +214,8 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* Logout */}
-          <button
+          {/* Logout — hide in personal mode */}
+          {!isPersonalMode && <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="p-2 text-slate-500 hover:text-slate-300 transition-colors"
             title="Sign out"
@@ -212,7 +223,7 @@ export default function Home() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -239,7 +250,7 @@ export default function Home() {
           <ChatView
             key={chatKey}
             className="h-full"
-            email={session.user?.email || ''}
+            email={effectiveSession.user?.email || ''}
             sessionId={currentSessionId}
             onSessionChange={handleSessionCreated}
           />
