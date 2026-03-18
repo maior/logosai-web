@@ -97,8 +97,13 @@ function MessageItem({
 
     const content = message.content;
 
-    // Full HTML document
-    if (content.includes('<html') || content.includes('<!DOCTYPE')) return 'html';
+    // Skip short error HTML (e.g., "403 Forbidden" pages) — render as markdown
+    if (content.length < 500 && (content.includes('Forbidden') || content.includes('Error') || content.includes('Not Found'))) {
+      return 'markdown';
+    }
+
+    // Full HTML document (must be substantial content, not error pages)
+    if ((content.includes('<html') || content.includes('<!DOCTYPE')) && content.length > 500) return 'html';
 
     // HTML fragments with substantial structure
     const htmlPatterns = [/<table[\s>]/i, /<div[\s>]/i, /<style[\s>]/i];
