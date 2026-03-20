@@ -224,6 +224,16 @@ export default function Home() {
             </svg>
           </a>
 
+          <a
+            href="/auto-reports"
+            className="p-2 text-slate-500 hover:text-slate-300 transition-colors"
+            title="Auto Reports"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </a>
+
           {/* Memories */}
           <button
             onClick={() => setMemoryOpen(!memoryOpen)}
