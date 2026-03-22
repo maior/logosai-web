@@ -165,6 +165,9 @@ export function LandingPage({
             LogosAI
           </span>
           <div className="flex items-center gap-6">
+            <a href="/architecture" className="text-sm text-slate-500 hover:text-slate-300 transition-colors hidden sm:block">
+              Architecture
+            </a>
             <a href="#use-cases" className="text-sm text-slate-500 hover:text-slate-300 transition-colors hidden sm:block">
               Use Cases
             </a>
