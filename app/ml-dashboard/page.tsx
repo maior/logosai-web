@@ -763,6 +763,7 @@ export default function MLDashboardPage() {
   const [selectedRecord, setSelectedRecord] = useState<SelectionRecord | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'knowledge-graph' | 'learning'>('overview');
   const [kgData, setKgData] = useState<KnowledgeGraphData | null>(null);
+  const [kgFullscreen, setKgFullscreen] = useState(false);
   const [kgStats, setKgStats] = useState<Record<string, any> | null>(null);
   const [kgLoading, setKgLoading] = useState(false);
   const [kgNodeFilter, setKgNodeFilter] = useState<string>('all');
@@ -812,6 +813,14 @@ export default function MLDashboardPage() {
       fetchKgData();
     }
   }, [activeTab, kgData, fetchKgData]);
+
+  // ESC key to close fullscreen KG
+  useEffect(() => {
+    if (!kgFullscreen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setKgFullscreen(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [kgFullscreen]);
 
   // Computed metrics
   const total = stats?.total_selections || 0;
@@ -1102,7 +1111,19 @@ export default function MLDashboardPage() {
               </div>
 
               {/* Knowledge Graph Viewer */}
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden mb-6">
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden mb-6 relative">
+                <div className="absolute top-14 right-3 z-10">
+                  <button
+                    onClick={() => setKgFullscreen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-slate-900/80 border border-slate-600/50 text-slate-300 hover:text-white hover:border-slate-500 transition-colors backdrop-blur-sm"
+                    title="Fullscreen view"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    Fullscreen
+                  </button>
+                </div>
                 <KnowledgeGraphViewer
                   data={kgNodeFilter === 'all' ? kgData : {
                     nodes: kgData.nodes.filter(n => n.type === kgNodeFilter),
@@ -1115,6 +1136,85 @@ export default function MLDashboardPage() {
                   height={520}
                 />
               </div>
+
+              {/* Fullscreen KG Modal */}
+              <AnimatePresence>
+                {kgFullscreen && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-sm flex flex-col"
+                  >
+                    {/* Fullscreen header */}
+                    <div className="flex items-center justify-between px-6 py-3 border-b border-slate-800/60 shrink-0">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">🕸️</span>
+                        <h2 className="text-sm font-medium text-slate-200">Knowledge Graph</h2>
+                        <span className="text-[10px] text-slate-500">
+                          {kgData.nodes.length} nodes &middot; {kgData.edges.length} edges
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Node type filters in fullscreen */}
+                        <div className="flex gap-1 mr-4">
+                          <button
+                            onClick={() => setKgNodeFilter('all')}
+                            className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                              kgNodeFilter === 'all'
+                                ? 'bg-purple-600 text-white border-purple-500'
+                                : 'bg-slate-800/50 text-slate-500 border-slate-700/50 hover:text-slate-300'
+                            }`}
+                          >
+                            All
+                          </button>
+                          {Array.from(new Set(kgData.nodes.map(n => n.type))).sort().map(type => {
+                            const color = KG_COLORS.nodes[type as keyof typeof KG_COLORS.nodes];
+                            return (
+                              <button
+                                key={type}
+                                onClick={() => setKgNodeFilter(kgNodeFilter === type ? 'all' : type)}
+                                className={`px-2 py-1 text-[10px] rounded border transition-colors flex items-center gap-1 ${
+                                  kgNodeFilter === type
+                                    ? 'bg-slate-700 text-white border-slate-500'
+                                    : 'bg-slate-800/50 text-slate-500 border-slate-700/50 hover:text-slate-300'
+                                }`}
+                              >
+                                {color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />}
+                                {type.replace(/_/g, ' ')}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => setKgFullscreen(false)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-slate-800 border border-slate-700/50 text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Close
+                        </button>
+                      </div>
+                    </div>
+                    {/* Fullscreen graph */}
+                    <div className="flex-1 min-h-0">
+                      <KnowledgeGraphViewer
+                        data={kgNodeFilter === 'all' ? kgData : {
+                          nodes: kgData.nodes.filter(n => n.type === kgNodeFilter),
+                          edges: kgData.edges.filter(e => {
+                            const filteredIds = new Set(kgData.nodes.filter(n => n.type === kgNodeFilter).map(n => n.id));
+                            return filteredIds.has(e.source) && filteredIds.has(e.target);
+                          }),
+                          metadata: kgData.metadata,
+                        }}
+                        height={typeof window !== 'undefined' ? window.innerHeight - 56 : 800}
+                        className="w-full h-full"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Distributions */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
